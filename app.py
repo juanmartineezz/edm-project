@@ -11,7 +11,8 @@ from opencage.geocoder import OpenCageGeocode
 import pyproj
 from datetime import datetime, date
 import random
-
+import os
+from dotenv import load_dotenv
 # --- CONFIGURACIÓN INICIAL DE PÁGINA ---
 st.set_page_config(
     page_title="Ruta Cultural Valenbisi",
@@ -31,8 +32,10 @@ def local_css(file_name):
 local_css("style.css") # Asegúrate que tu CSS se llama style.css
 
 # --- CLAVES DE API ---
-OPENCAGE_KEY = "dc45bcf2743f475e93dce4021b6a3982" 
-OPENWEATHER_KEY = "f846c18514907ba21caade413f349297" 
+load_dotenv()
+OPENCAGE_KEY = os.getenv("OPENCAGE_KEY", "")
+OPENWEATHER_KEY = os.getenv("OPENWEATHER_KEY", "")  # Asegúrate de que tienes la clave configurada en tu entorno
+
 
 if not OPENCAGE_KEY:
     st.error("🔑 Clave de OpenCage no configurada. La geocodificación no funcionará.")
