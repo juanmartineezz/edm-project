@@ -9,6 +9,7 @@ from geopy.distance import geodesic
 from opencage.geocoder import OpenCageGeocode
 from datetime import datetime, date
 import random
+import re # Importamos re para limpiar los nombres
 
 # --- CONFIGURACIÓN INICIAL DE PÁGINA ---
 st.set_page_config(
@@ -50,7 +51,7 @@ if 'rutas_calculadas_sesion' not in st.session_state: st.session_state.rutas_cal
 @st.cache_data(ttl=3600)
 def load_and_categorize_centros(filepath):
     """
-    Función ADAPTADA para leer el nuevo CSV con columnas 'nombre' y 'geo_point_2d'.
+    Función ADAPTADA para leer el nuevo CSV y AÑADIR el enlace de información.
     """
     try:
         df = pd.read_csv(filepath, encoding='utf-8')
@@ -61,8 +62,8 @@ def load_and_categorize_centros(filepath):
         st.error(f"❌ Error leyendo el archivo CSV de centros: {e}")
         return pd.DataFrame()
 
-    # Verificar que las columnas necesarias del nuevo CSV existen
-    required_cols = ['nombre', 'geo_point_2d']
+    # ### NUEVO ###: Añadimos 'informacion_recurso' a las columnas requeridas
+    required_cols = ['nombre', 'geo_point_2d', 'informacion_recurso']
     if not all(col in df.columns for col in required_cols):
         missing = [col for col in required_cols if col not in df.columns]
         st.error(f"El archivo CSV de centros debe contener las columnas: {', '.join(missing)}.")
@@ -71,39 +72,34 @@ def load_and_categorize_centros(filepath):
     # Limpiar filas sin datos esenciales
     df = df.dropna(subset=required_cols)
     if df.empty:
-        st.warning("No hay datos de centros culturales con nombre y coordenadas válidos.")
+        st.warning("No hay datos de centros culturales con nombre, coordenadas y enlace de información válidos.")
         return pd.DataFrame()
 
     # --- Procesamiento de Coordenadas ---
-    # La columna 'geo_point_2d' es un string tipo "[lat, lon]". Hay que parsearlo.
     try:
-        # 1. Quitar corchetes y dividir el string por la coma
         coords = df['geo_point_2d'].str.strip('[]').str.split(',', expand=True)
-        # 2. Convertir a números, asignando a latitud y longitud
         df['latitude'] = pd.to_numeric(coords[0], errors='coerce')
         df['longitude'] = pd.to_numeric(coords[1], errors='coerce')
     except Exception as e:
         st.error(f"❌ Error procesando las coordenadas de 'geo_point_2d': {e}")
         return pd.DataFrame()
     
-    # Eliminar filas donde la conversión de coordenadas falló
     df = df.dropna(subset=['latitude', 'longitude'])
     if df.empty:
         st.warning("No se pudieron extraer coordenadas válidas del archivo.")
         return pd.DataFrame()
 
-    # --- Limpieza de Nombres y Asignación de Categoría ---
-    # Limpiar el nombre (quitar números y guiones al inicio, ej: "9-VIVIENDAS..." -> "VIVIENDAS...")
+    # --- Limpieza de Nombres, Asignación de Categoría y URL de Info ---
     df['nombre_centro'] = df['nombre'].str.replace(r'^\d+\s*-\s*', '', regex=True).str.strip()
-
-    # Asignar una categoría genérica, ya que el nuevo CSV no la tiene
     df['categoria'] = 'Punto de Interés'
+    # ### NUEVO ###: Guardamos la URL de información
+    df['info_url'] = df['informacion_recurso']
 
     # Seleccionar las columnas finales que necesita la aplicación
-    cols_to_keep = ['nombre_centro', 'latitude', 'longitude', 'categoria']
+    # ### NUEVO ###: Añadimos 'info_url' a la lista de columnas a mantener
+    cols_to_keep = ['nombre_centro', 'latitude', 'longitude', 'categoria', 'info_url']
     result_df = df[cols_to_keep].drop_duplicates(subset=['nombre_centro'])
 
-    # Ordenar y devolver el DataFrame limpio
     return result_df.sort_values(by='nombre_centro').reset_index(drop=True)
 
 
@@ -282,8 +278,6 @@ def display_weather(weather_data):
 
 
 # --- CARGA DE DATOS ---
-# CAMBIO IMPORTANTE: Asegúrate de que tu nuevo archivo se llame 'nuevos_centros.csv'
-# o cambia el nombre aquí.
 centros_df_categorized = load_and_categorize_centros("datos_api.csv")
 valenbisi_df_processed = get_valenbisi_data()
 weather_data = get_weather_valencia(OPENWEATHER_KEY)
@@ -416,6 +410,12 @@ with tab1:
                     with st.expander(f"ℹ️ Información del Destino: {destino_info_val['nombre_centro']}", expanded=True):
                         st.markdown(f"**Categoría:** {destino_info_val.get('categoria', 'N/A')}")
                         st.markdown(f"📍 **Coordenadas:** Lat: {destino_info_val['latitude']:.5f}, Lon: {destino_info_val['longitude']:.5f}")
+
+                        # ### NUEVO ###: Añadir el enlace al PDF de información
+                        if 'info_url' in destino_info_val and pd.notna(destino_info_val['info_url']):
+                            info_url = destino_info_val['info_url']
+                            st.markdown(f'**<a href="{info_url}" target="_blank">📄 ¿Quieres conocer más acerca de este punto?</a>**', unsafe_allow_html=True)
+                        # ### FIN DEL NUEVO ###
 
                     pois_cercanos_df = find_nearby_pois(destino_coords_val, centros_df_categorized, radius_km=0.75, exclude_name=destino_info_val['nombre_centro'])
 
@@ -568,12 +568,10 @@ with tab2:
         st.subheader("📊 Explora por Categorías")
         categorias_unicas = sorted(centros_df_categorized['categoria'].unique())
         
-        # Como ahora solo hay una categoría, la métrica no es tan útil en columnas.
-        # La mostraremos de forma simple.
         if len(categorias_unicas) == 1:
             count = len(centros_df_categorized)
             st.metric(label=categorias_unicas[0], value=count)
-        else: # Mantenemos la lógica por si el CSV cambiara en el futuro
+        else:
             stats_cols = st.columns(len(categorias_unicas))
             for i, cat in enumerate(categorias_unicas):
                 count = len(centros_df_categorized[centros_df_categorized['categoria'] == cat])
