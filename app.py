@@ -6,7 +6,8 @@ from streamlit_folium import folium_static
 from folium.plugins import MarkerCluster, LocateControl
 from geopy.distance import geodesic
 from opencage.geocoder import OpenCageGeocode
-
+from dotenv import load_dotenv
+import os
 # --- CONFIGURACIÓN INICIAL DE PÁGINA ---
 st.set_page_config(page_title="Ruta Cultural Valenbisi", page_icon="🚲", layout="wide", initial_sidebar_state="collapsed")
 
@@ -20,7 +21,7 @@ def local_css(file_name):
 local_css("style.css")
 
 # --- CLAVES DE API ---
-OPENCAGE_KEY = "dc45bcf2743f475e93dce4021b6a3982"
+OPENCAGE_KEY=os.getenv("OPENCAGE_KEY")
 geocoder = OpenCageGeocode(OPENCAGE_KEY)
 
 # --- INICIALIZAR SESSION STATE ---
