@@ -1,3 +1,0 @@
---- Recursos turísticos de la API que aparecen en el CSV 'v_infociudad.csv' ---
-
-No se encontraron coincidencias.
