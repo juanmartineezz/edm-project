@@ -19,7 +19,7 @@ def local_css(file_name):
     except FileNotFoundError:
         pass
 local_css("style.css")
-
+load_dotenv()
 # --- CLAVES DE API ---
 OPENCAGE_KEY=os.getenv("OPENCAGE_KEY")
 geocoder = OpenCageGeocode(OPENCAGE_KEY)
