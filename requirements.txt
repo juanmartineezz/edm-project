@@ -4,4 +4,4 @@ requests
 folium
 streamlit-folium
 geopy
-opencage-geocoder
+opencage
